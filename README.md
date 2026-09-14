@@ -45,43 +45,57 @@ O **ProxsR** é um sistema completo de rotação de proxies para Linux que permi
 - **Configurar** o proxy do sistema (GNOME/KDE) automaticamente
 - **Monitorar** tudo em tempo real via dashboard web
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Seus Aplicativos                         │
-│         (Navegador, Terminal, curl, git, pip...)            │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │   ProxsR    │
-                    │  Dashboard  │
-                    │  :5000      │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-       ┌──────▼──────┐ ┌──▼────────┐ ┌─▼──────────┐
-       │  HTTP Proxy │ │ SOCKS5    │ │  Health     │
-       │  :8080      │ │ Proxy     │ │  Checker    │
-       │             │ │ :1080     │ │  (async)    │
-       └──────┬──────┘ └──┬────────┘ └─┬──────────┘
-              │            │            │
-              └────────────┼────────────┘
-                           │
-              ┌────────────▼────────────┐
-              │     Proxy Pool          │
-              │  ┌─────┐ ┌─────┐       │
-              │  │Rot 1│ │Rot 2│ ...   │
-              │  └─────┘ └─────┘       │
-              │  ┌──────┐ ┌──────┐     │
-              │  │Fixa 1│ │Fixa 2│     │
-              │  └──────┘ └──────┘     │
-              └────────────┬────────────┘
-                           │
-              ┌────────────▼────────────┐
-              │   Provedores Externos   │
-              │  (Bright Data, Smart    │
-              │   proxy, Oxylabs...)    │
-              └─────────────────────────┘
+```mermaid
+graph TB
+    subgraph Apps["Seus Aplicativos"]
+        A1[Navegador]
+        A2[Terminal]
+        A3[curl / git / pip]
+    end
+
+    subgraph ProxsR["ProxsR"]
+        D[Dashboard :5000]
+        HP[HTTP Proxy :8080]
+        SP[SOCKS5 Proxy :1080]
+        HC[Health Checker]
+    end
+
+    subgraph Pool["Proxy Pool"]
+        R1[Rotativa 1]
+        R2[Rotativa 2]
+        R3[Rotativa 3]
+        S1[Fixa 1]
+        S2[Fixa 2]
+    end
+
+    subgraph Providers["Provedores Externos"]
+        P1[Bright Data]
+        P2[Smartproxy]
+        P3[Oxylabs]
+    end
+
+    A1 --> HP
+    A2 --> SP
+    A3 --> HP
+    D --> HP
+    D --> SP
+    HP --> R1
+    HP --> R2
+    SP --> R3
+    SP --> S1
+    HC --> R1
+    HC --> R2
+    HC --> S1
+    R1 --> P1
+    R2 --> P2
+    R3 --> P3
+    S1 --> P1
+    S2 --> P2
+
+    style Apps fill:#1a1a2e,stroke:#666,color:#fff
+    style ProxsR fill:#0f3460,stroke:#4fc3f7,color:#fff
+    style Pool fill:#16213e,stroke:#4fc3f7,color:#fff
+    style Providers fill:#1a1a2e,stroke:#666,color:#fff
 ```
 
 ---
@@ -107,76 +121,95 @@ O **ProxsR** é um sistema completo de rotação de proxies para Linux que permi
 
 ### Diagrama de Componentes
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      main.py (CLI)                          │
-│  start | stop | status | restart | --port | --no-browser    │
-└───────────────┬─────────────────────────────────────────────┘
-                │
-    ┌───────────▼───────────┐
-    │    ProxyManager       │ ← Singleton central
-    │  (rotator + pool)     │
-    └───┬───────┬───────┬───┘
-        │       │       │
-  ┌─────▼──┐ ┌──▼───┐ ┌─▼──────────┐
-  │  Web   │ │ HTTP │ │   SOCKS5   │
-  │Dashboard│ │Server│ │   Server   │
-  │ :5000  │ │:8080 │ │   :1080    │
-  └────────┘ └──────┘ └────────────┘
-        │
-  ┌─────▼──────────┐
-  │ SystemProxy    │
-  │ Manager        │
-  │ (GNOME/KDE)    │
-  └────────────────┘
+```mermaid
+graph TB
+    CLI["main.py<br/>CLI: start | stop | status | restart"]
+
+    subgraph Core["Core"]
+        PM[ProxyManager<br/>Singleton Central]
+        PR[ProxyRotator<br/>4 Estratégias]
+        PP[ProxyPool<br/>Thread-Safe]
+    end
+
+    subgraph Servers["Servidores"]
+        WS[Web Dashboard<br/>:5000]
+        HS[HTTP Proxy<br/>:8080]
+        SS[SOCKS5 Proxy<br/>:1080]
+    end
+
+    subgraph System["Sistema"]
+        HC[Health Checker<br/>Async + Paralelo]
+        SPM[SystemProxy Manager<br/>GNOME / KDE]
+    end
+
+    CLI --> PM
+    PM --> PR
+    PM --> PP
+    PM --> WS
+    PM --> HS
+    PM --> SS
+    PM --> HC
+    PM --> SPM
+
+    style CLI fill:#e94560,stroke:#e94560,color:#fff
+    style Core fill:#0f3460,stroke:#4fc3f7,color:#fff
+    style Servers fill:#16213e,stroke:#4fc3f7,color:#fff
+    style System fill:#1a1a2e,stroke:#666,color:#fff
 ```
 
 ### Fluxo de uma Request
 
-```
-App → ProxyServer:8080
-         │
-         ▼
-  ProxyManager.get_proxy_for_request()
-         │
-         ▼
-  ProxyRotator.get_next_proxy()
-         │
-         ▼
-  Retorna ProxyEntry
-  (host, port, protocol, user, pass)
-         │
-         ▼
-  open_upstream(proxy, target_host, target_port)
-         │
-    ┌────┼────┐
-    │    │    │
-  SOCKS5  HTTP  CONNECT
-  Auth    Basic  Tunnel
-    │    │    │
-    └────┼────┘
-         │
-         ▼
-  Bidirectional Forwarding
-         │
-         ▼
-  report_success() ou report_failure()
+```mermaid
+sequenceDiagram
+    participant App as Seu App
+    participant PS as ProxyServer:8080
+    participant PM as ProxyManager
+    participant PR as ProxyRotator
+    participant UP as Proxy Upstream
+    participant Dest as Destino
+
+    App->>PS: Request HTTP
+    PS->>PM: get_proxy_for_request()
+    PM->>PR: get_next_proxy()
+    PR-->>PM: ProxyEntry (host, port, user, pass)
+    PM-->>PS: Proxy selecionada
+
+    alt SOCKS5
+        PS->>UP: SOCKS5 Handshake + Auth
+    else HTTP CONNECT
+        PS->>UP: CONNECT + Basic Auth
+    else HTTP Direto
+        PS->>UP: GET com Proxy-Authorization
+    end
+
+    UP->>Dest: Request original
+    Dest-->>UP: Response
+    UP-->>PS: Response
+    PS-->>App: Response
+
+    PS->>PM: report_success()
 ```
 
 ### Ciclo de Vida de uma Proxy
 
-```
-┌──────────┐    falha     ┌──────────┐
-│  Ativa   │─────────────→│  Morta   │
-│ is_alive │              │ is_alive │
-│  = True  │←─────────────│  = False │
-└──────────┘   sucesso    └──────────┘
-      │                         │
-      │ record_success()        │ record_failure(max)
-      │ → failures = 0          │ → failures++
-      │ → is_alive = True       │ → is_alive = False
-      │                         │
-      └─────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Ativa: Adicionada ao pool
+
+    state Ativa {
+        [*] --> IsAlive: is_alive = True
+        IsAlive --> IsAlive: record_success()
+        IsAlive --> Falhas: record_failure()
+        Falhas --> IsAlive: record_success()
+        Falhas --> Morta: failures >= max
+    }
+
+    state Morta {
+        [*] --> Dead: is_alive = False
+    }
+
+    Ativa --> Morta: Falha excessiva
+    Morta --> Ativa: Reativação manual
 ```
 
 ---
@@ -192,7 +225,7 @@ App → ProxyServer:8080
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/proxsr.git
+git clone https://github.com/melinskyRf/proxsr.git
 cd proxsr
 
 # Crie um ambiente virtual
@@ -203,7 +236,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Configure suas proxies
-cp config/proxies.json.example config/proxies.json
 # Edite config/proxies.json com suas proxies reais
 
 # Execute
@@ -332,27 +364,24 @@ Configure diretamente no dashboard:
 
 O sistema de teste faz 3 verificações em cada proxy:
 
-```
-┌─────────────────────────────────────────────┐
-│              Teste de Proxy                 │
-├─────────────────────────────────────────────┤
-│                                             │
-│  1. CONNECT ─── http://httpbin.org/ip       │
-│     → Testa se o proxy encaminha            │
-│     → Retorna IP de saída                   │
-│     → Mede tempo de resposta                │
-│                                             │
-│  2. IP CHECK ── https://api.ipify.org       │
-│     → Testa HTTPS via proxy                 │
-│     → Confirma IP diferente do seu          │
-│                                             │
-│  3. HTTPS ───── https://httpbin.org/get     │
-│     → Testa GET completo                    │
-│     → Verifica headers e body               │
-│                                             │
-├─────────────────────────────────────────────┤
-│  Resultado: OK/FALHA + IP + Tempo           │
-└─────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Testes["Testes por Proxy"]
+        T1["1. CONNECT<br/>http://httpbin.org/ip<br/>→ IP de saída"]
+        T2["2. IP CHECK<br/>https://api.ipify.org<br/>→ Confirma IP"]
+        T3["3. HTTPS<br/>https://httpbin.org/get<br/>→ GET completo"]
+    end
+
+    T1 --> R{Resultado}
+    T2 --> R
+    T3 --> R
+
+    R -->|"1+ OK"| OK["✅ OK<br/>IP + Tempo"]
+    R -->|"Todos falham"| FAIL["❌ FALHA<br/>Erro"]
+
+    style Testes fill:#0f3460,stroke:#4fc3f7,color:#fff
+    style OK fill:#1b4332,stroke:#2d6a4f,color:#fff
+    style FAIL fill:#641220,stroke:#e94560,color:#fff
 ```
 
 ### Usando no Dashboard
@@ -417,25 +446,26 @@ Quando ativado no dashboard, o ProxsR configura o proxy do sistema operacional:
 
 ### Fluxo de Ativação
 
-```
-┌──────────────────┐
-│ Toggle no GUI    │
-└────────┬─────────┘
-         │
-    ┌────▼────┐
-    │ GNOME?  │──sim──→ gsettings (manual + PAC)
-    └────┬────┘         + ~/.proxsr_env
-         │não
-    ┌────▼────┐
-    │  KDE?   │──sim──→ kwriteconfig5 (manual + PAC)
-    └────┬────┘         + ~/.proxsr_env
-         │não
-    ┌────▼────────────┐
-    │ Fallback:       │
-    │ ~/.proxsr_env   │
-    │ + auto-source   │
-    │ no .bashrc      │
-    └─────────────────┘
+```mermaid
+flowchart TB
+    Toggle["Toggle no Dashboard"]
+    Toggle --> DE{Detectar Desktop}
+
+    DE -->|"GNOME"| GNOME["gsettings<br/>mode=manual<br/>+ PAC autoconfig-url"]
+    DE -->|"KDE"| KDE["kwriteconfig5<br/>ProxyType=1<br/>+ AutoConfigUrl"]
+    DE -->|"Outro"| ENV["~/.proxsr_env"]
+
+    GNOME --> ENV2["~/.proxsr_env<br/>(side-effect)"]
+    KDE --> ENV2
+    ENV --> BASHRC["Auto-source no<br/>.bashrc / .zshrc"]
+
+    ENV2 --> BASHRC
+
+    style Toggle fill:#e94560,stroke:#e94560,color:#fff
+    style GNOME fill:#4fc3f7,stroke:#4fc3f7,color:#000
+    style KDE fill:#2d6a4f,stroke:#2d6a4f,color:#fff
+    style ENV fill:#f4a261,stroke:#f4a261,color:#000
+    style BASHRC fill:#16213e,stroke:#4fc3f7,color:#fff
 ```
 
 ### Auto-integração com Shell
