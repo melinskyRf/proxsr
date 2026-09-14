@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProxsR - Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/dark.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon pulse">&#x25C8;</span>
+                    <span class="logo-text">ProxsR</span>
+                </div>
+                <span class="header-subtitle">PROXY WORKSPACE</span>
+            </div>
+            <div class="header-center">
+                <div class="system-status" id="system-status">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Conectando...</span>
+                </div>
+                <div class="cycle-indicator" id="cycle-indicator">
+                    <span class="cycle-label">Ciclo</span>
+                    <span class="cycle-value" id="cycle-value">0/5</span>
+                    <div class="cycle-bar"><div class="cycle-fill" id="cycle-fill"></div></div>
+                </div>
+            </div>
+<div class="header-right">
+                <div class="system-proxy-toggle" id="system-proxy-toggle" title="Proxy do Sistema">
+                    <button class="btn btn-icon" onclick="toggleSystemProxy()" id="btn-system-proxy">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                    </button>
+                    <span class="toggle-label" id="sys-proxy-label">Sistema</span>
+                    <span class="toggle-status" id="sys-proxy-status">OFF</span>
+                </div>
+                <!-- Detalhes do proxy do sistema (quando ativo) -->
+                <div class="sys-proxy-details" id="sys-proxy-details" style="display:none;">
+                    <span class="sys-proxy-detail" id="sys-proxy-method"></span>
+                    <span class="sys-proxy-detail" id="sys-proxy-pac"></span>
+                    <span class="sys-proxy-detail" id="sys-proxy-shell"></span>
+                </div>
+                <a href="/api/system-proxy/pac" class="btn btn-icon btn-pac" id="btn-pac" title="Baixar arquivo PAC" download>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </a>
+                <button class="btn btn-icon" onclick="toggleConfigPanel()" title="Configurações">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+                <span class="header-time" id="current-time"></span>
+            </div>
+        </header>
+
+        <!-- Painel de Configuração (Slide-in) -->
+        <aside class="config-panel" id="config-panel" inert role="dialog" aria-modal="true" aria-label="Configurações">
+            <div class="config-header">
+                <h2>Configurações</h2>
+                <button aria-label="Fechar" class="btn-close" onclick="toggleConfigPanel()">&times;</button>
+            </div>
+            <div class="config-tabs">
+                <button class="config-tab active" data-tab="proxies">Proxies</button>
+                <button class="config-tab" data-tab="rotation">Rotação</button>
+                <button class="config-tab" data-tab="server">Servidor</button>
+            </div>
+            <div class="config-content">
+                <!-- Aba Proxies -->
+                <div class="config-pane active" id="tab-proxies">
+                    <div class="config-section">
+                        <div class="section-header">
+                            <h3>Proxies Rotativas</h3>
+                            <button class="btn btn-sm btn-green" onclick="showProxyModal('rotating')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Adicionar
+                            </button>
+                        </div>
+                        <div id="rotating-proxies-config" class="proxy-config-list"></div>
+                    </div>
+                    <div class="config-section">
+                        <div class="section-header">
+                            <h3>Proxies Fixas</h3>
+                            <button class="btn btn-sm btn-green" onclick="showProxyModal('static')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Adicionar
+                            </button>
+                        </div>
+                        <div id="static-proxies-config" class="proxy-config-list"></div>
+                    </div>
+                </div>
+
+                <!-- Aba Rotação -->
+                <div class="config-pane" id="tab-rotation">
+                    <div class="config-section">
+                        <label for="config-strategy">Estratégia de Rotação</label>
+<select id="config-strategy" class="form-input">
+                            <option value="cycle">Ciclo (padrão)</option>
+                            <option value="round_robin">Round Robin</option>
+                            <option value="random">Aleatório</option>
+                            <option value="least_used">Menos Usada</option>
+                        </select>
+                    </div>
+                    <div class="config-section">
+                        <label for="config-max-rotations">Máx. Rotações por Ciclo</label>
+<input type="number" id="config-max-rotations" class="form-input" min="1" max="50" value="5">
+                    </div>
+                    <div class="config-section">
+                        <label>
+                            <input type="checkbox" id="config-shuffle" checked> Embaralhar ao reiniciar ciclo
+                        </label>
+                    </div>
+                    <div class="config-section">
+                        <label for="config-health-interval">Intervalo Verificar proxies (seg)</label>
+<input type="number" id="config-health-interval" class="form-input" min="10" max="3600" value="60">
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-green" onclick="saveRotationConfig()">Salvar Configuração</button>
+                    </div>
+                </div>
+
+                <!-- Aba Servidor -->
+                <div class="config-pane" id="tab-server">
+                    <div class="config-section">
+                        <label for="config-http-host">HTTP Host</label>
+<input type="text" id="config-http-host" class="form-input" value="127.0.0.1">
+                    </div>
+                    <div class="config-section">
+                        <label for="config-http-port">HTTP Porta</label>
+<input type="number" id="config-http-port" class="form-input" value="8080">
+                    </div>
+                    <div class="config-section">
+                        <label for="config-socks5-host">SOCKS5 Host</label>
+<input type="text" id="config-socks5-host" class="form-input" value="127.0.0.1">
+                    </div>
+                    <div class="config-section">
+                        <label for="config-socks5-port">SOCKS5 Porta</label>
+<input type="number" id="config-socks5-port" class="form-input" value="1080">
+                    </div>
+                    <div class="config-section">
+                        <label for="config-web-port">Web Dashboard Porta</label>
+<input type="number" id="config-web-port" class="form-input" value="5000">
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-green" onclick="saveServerConfig()">Salvar Configuração</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        <div class="config-overlay" id="config-overlay" onclick="toggleConfigPanel()"></div>
+
+        <!-- Modal de Proxy -->
+        <div class="modal" id="proxy-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Adicionar Proxy</h3>
+                    <button aria-label="Fechar" class="btn-close" onclick="closeProxyModal()">&times;</button>
+                </div>
+                <form id="proxy-form">
+                    <input type="hidden" id="proxy-id" name="id">
+                    <input type="hidden" id="proxy-type" name="type">
+                    <div class="form-group"><label for="proxy-name">Nome da proxy</label><input id="proxy-name" name="name" maxlength="80" class="form-input" placeholder="Ex.: Brasil · principal"><small class="field-help">Um nome para reconhecer esta conexão. O ID permanece o mesmo ao editar.</small></div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proxy-protocol">Protocolo</label>
+<select name="protocol" id="proxy-protocol" class="form-input" required>
+                                <option value="http">HTTP</option>
+                                <option value="https">HTTPS</option>
+                                <option value="socks5">SOCKS5</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="proxy-proxy_type">Tipo</label>
+<select name="proxy_type" id="proxy-proxy_type" class="form-input" required>
+                                <option value="rotating">Rotativa</option>
+                                <option value="static">Normal</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="field-host">Host</label>
+<input id="field-host" type="text" name="host" class="form-input" placeholder="proxy.exemplo.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="field-port">Porta</label>
+<input id="field-port" type="number" name="port" min="1" max="65535" class="form-input" placeholder="8080" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="field-username">Usuário (opcional)</label>
+<input id="field-username" type="text" name="username" class="form-input" placeholder="usuario">
+                        </div>
+                        <div class="form-group">
+                            <label for="field-password">Senha (opcional)</label>
+<input id="field-password" type="password" name="password" class="form-input" placeholder="senha">
+                        </div>
+                    </div>
+                    <div class="form-group" id="rotation-count-group">
+                        <label for="field-rotation_count">Rotação a cada N requests (apenas rotativas)</label>
+<input id="field-rotation_count" type="number" name="rotation_count" class="form-input" placeholder="10" min="1" max="1000">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="enabled" id="proxy-enabled" checked> Ativada
+                        </label>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn" onclick="closeProxyModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-green">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <main class="main">
+            <div id="connection-notice" class="connection-notice" role="alert" hidden>Conexão com o servidor perdida. Os dados abaixo podem estar desatualizados. Tentando reconectar…</div>
+            <section class="dashboard-intro">
+                <div><div class="eyebrow">CONTROLE DE CONEXÕES</div><h1>Sua rede, em movimento<span>.</span></h1>
+                <p>Gerencie suas proxies, acompanhe a rotação e mantenha tudo sob controle.</p></div>
+                <div class="intro-actions"><a class="btn tutorial-link" href="#tutorial">Como usar ↗</a><button class="btn btn-green btn-primary" onclick="showProxyModal('rotating')">＋ Adicionar proxy</button></div>
+            </section>
+            <div class="connection-strip"><span><i class="connection-dot"></i> Conexões locais</span><span>HTTP <code id="endpoint-http">—</code></span><span>SOCKS5 <code id="endpoint-socks">—</code></span><span id="health-label">Carregando verificação…</span></div>
+            <!-- Stats Row -->
+            <section class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Proxies cadastradas</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="stat-alive">0</div>
+                        <div class="stat-label">Disponíveis</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6"></path><path d="M1 20v-6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="stat-rotating">0</div>
+                        <div class="stat-label">Rotativas</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-orange">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="stat-requests">0</div>
+                        <div class="stat-label">Requisições</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-purple">
+                    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="stat-uptime">00:00</div>
+                        <div class="stat-label">Tempo em execução</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="workspace-toolbar"><div><span class="eyebrow">SEU WORKSPACE</span><h2>Conexões & atividade</h2></div><label class="proxy-search"><span>⌕</span><input id="proxy-search" type="search" placeholder="Buscar por nome, ID, host ou IP" aria-label="Buscar proxies" oninput="renderProxies()"></label></div>
+            <div class="grid">
+                <!-- Visualização de Rotação Animada -->
+                <div class="panel panel-wide">
+                    <div class="panel-header">
+                        <h2>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                            Fluxo de rotação
+                        </h2>
+                        <div class="panel-actions">
+                            <div class="rotation-controls">
+                                <button class="btn btn-sm" onclick="resetRotator()" title="Resetar Ciclo">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                        <path d="M3 3v5h5"></path>
+                                    </svg>
+                                    Reiniciar
+                                </button>
+                                <button class="btn btn-sm" onclick="forceNextProxy()" title="Forçar Próxima Proxy">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="13 19 22 12 13 5 13 19"></polygon>
+                                    </svg>
+                                    Próxima
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="flow-caption"><span>MAPA DE CONEXÕES</span><span>Clique em um círculo para identificar ou editar</span></div>
+                        <div class="rotation-visual" id="rotation-visual">
+                            <div class="rotation-empty">Iniciando...</div>
+                        </div>
+                        <div class="rotation-legend">
+                            <div class="legend-item"><span class="legend-dot active"></span>Selecionada</div>
+                            <div class="legend-item"><span class="legend-dot completed"></span>Verificada</div>
+                            <div class="legend-item"><span class="legend-dot pending"></span>Aguardando</div>
+                            <div class="legend-item"><span class="legend-dot disabled"></span>Inativa</div>
+                        </div>
+                        <div class="rotation-info">
+                            <div class="rotation-info-item">
+                                <span class="rotation-info-label">Estratégia:</span>
+                                <span class="rotation-info-value" id="rot-strategy">-</span>
+                            </div>
+                            <div class="rotation-info-item">
+                                <span class="rotation-info-label">Proxy Atual:</span>
+                                <span class="rotation-info-value" id="rot-current">-</span>
+                            </div>
+                            <div class="rotation-info-item">
+                                <span class="rotation-info-label">Próxima proxy:</span>
+                                <span class="rotation-info-value" id="rot-next">-</span>
+                            </div>
+                            <div class="rotation-info-item">
+                                <span class="rotation-info-label">Índice Ciclo:</span>
+                                <span class="rotation-info-value" id="rot-index">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Proxies Rotativas -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6"></path>
+                                <path d="M1 20v-6"></path>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            Proxies Rotativas
+                        </h2>
+                        <div class="panel-actions">
+                            <button class="btn btn-sm btn-blue" onclick="testAllProxies()" id="btn-test-all">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                Testar Todas
+                            </button>
+                            <button class="btn btn-sm btn-green" onclick="runHealthCheck()" id="btn-health-check">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                                Verificar proxies
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div id="rotating-proxies-list" class="proxy-list"></div>
+                    </div>
+                </div>
+
+                <!-- Proxies Fixas -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                                <path d="M8 21h8"></path>
+                                <path d="M12 17v4"></path>
+                            </svg>
+                            Proxies Fixas
+                        </h2>
+                    </div>
+                    <div class="panel-body">
+                        <div id="static-proxies-list" class="proxy-list"></div>
+                    </div>
+                </div>
+
+                <!-- Resultados dos Testes -->
+                <div class="panel panel-wide" id="test-results-panel" style="display:none;">
+                    <div class="panel-header">
+                        <h2>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Resultados dos Testes
+                        </h2>
+                        <div class="panel-actions">
+                            <span class="test-summary" id="test-summary"></span>
+                            <button class="btn btn-sm" onclick="clearTestResults()">Limpar</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div id="test-results-list" class="test-results-list"></div>
+                    </div>
+                </div>
+
+                <!-- Atividade recente -->
+                <div class="panel panel-wide">
+                    <div class="panel-header">
+                        <h2>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            Atividade recente
+                        </h2>
+                        <div class="panel-actions">
+                            <select id="log-filter" class="form-input form-input-sm" onchange="filterLog()">
+                                <option value="all">Todos</option>
+                                <option value="rotation">Rotação</option>
+                                <option value="health">Verificar proxies</option>
+                                <option value="request">Requisições</option>
+                                <option value="action">Ações</option>
+                                <option value="error">Erros</option>
+                            </select>
+                            <button class="btn btn-sm" onclick="clearLog()">Limpar</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div id="activity-log" class="activity-log"></div>
+                    </div>
+                </div>
+            </div>
+            <section class="tutorial" id="tutorial" aria-labelledby="tutorial-title">
+                <div class="tutorial-heading"><div><div class="eyebrow">COMECE POR AQUI</div><h2 id="tutorial-title">Sua primeira conexão, passo a passo.</h2><p>Do cadastro à rotação. Tudo o que você precisa para começar.</p></div><span class="tutorial-tag">GUIA RÁPIDO / 04 PASSOS</span></div>
+                <div class="tutorial-steps">
+                    <article><span class="step-number">01</span><h3>Cadastre e identifique</h3><p>Use <strong>Adicionar proxy</strong>. Dê um nome, escolha o protocolo e informe host e porta fornecidos pelo seu provedor. Preencha usuário e senha apenas se forem necessários.</p><p class="tutorial-note">Os endereços example.com são exemplos. Substitua por proxies reais.</p><button class="btn btn-sm" onclick="showProxyModal('rotating')">Adicionar minha proxy ↗</button></article>
+                    <article><span class="step-number">02</span><h3>Verifique a conexão</h3><p>Clique em <strong>Verificar proxies</strong>. “Não verificada” significa que ainda não houve teste. O IP de saída aparece após a validação. Proxies indisponíveis podem ser testadas novamente.</p><p class="tutorial-note">O painel conectado não significa que todas as proxies funcionam.</p></article>
+                    <article><span class="step-number">03</span><h3>Conecte seu aplicativo</h3><p>Nas configurações de proxy do navegador ou aplicativo, use o endereço HTTP ou SOCKS5 exibido no topo. Mantenha o ProxsR em execução.</p><p class="tutorial-note">Você também pode baixar o PAC no topo. Ele permite conexão direta como alternativa se os proxies falharem.</p></article>
+                    <article><span class="step-number">04</span><h3>Acompanhe a rotação</h3><p>Os círculos mostram nome, ID, protocolo e uso de cada proxy. Na estratégia <strong>Ciclo</strong>, o anel avança a cada requisição até o limite definido. <strong>Próxima</strong> prepara outra proxy para a próxima requisição.</p><p class="tutorial-note">Uma conexão HTTPS aberta mantém a mesma proxy até encerrar.</p></article>
+                </div>
+                <div class="tutorial-faq">
+                    <details><summary>O que significam os círculos?</summary><p>O círculo branco identifica a última proxy selecionada. O anel representa o uso no ciclo, e o texto informa se ela está aguardando, não verificada, indisponível ou desativada. A identificação continua visível mesmo quando a proxy sai da rotação. Clique no círculo para editar.</p></details>
+                    <details><summary>Qual estratégia de rotação escolher?</summary><p>Ciclo mantém cada proxy pelo número de requisições configurado. Sequencial alterna a cada seleção. Aleatória sorteia uma proxy disponível. Menos usada prioriza a proxy com menos requisições registradas. Nestas duas últimas, a próxima proxy não é previsível. Proxies fixas são usadas quando não há rotativas disponíveis.</p></details>
+                    <details><summary>Como editar, desativar ou remover uma proxy?</summary><p>Use os botões da lista ou clique em um círculo. Editar mantém o ID; senha em branco mantém a senha anterior. Desativar preserva o cadastro. Excluir remove o cadastro após confirmação. A busca aceita nome, ID, host e IP.</p></details>
+                    <details><summary>O que fazer quando uma conexão falha?</summary><p>Confira host, porta, protocolo e credenciais do provedor. Execute a verificação novamente. Se o painel informar perda de conexão, confirme que o ProxsR está em execução. Alterações nas portas exigem reiniciar o programa; ajustes de rotação são aplicados imediatamente.</p></details>
+                    <details><summary>O botão Sistema configura todos os aplicativos?</summary><p>No GNOME ou KDE, ele altera as preferências de proxy do ambiente. Outros aplicativos podem ter configurações próprias. Em outros ambientes, o ProxsR prepara um arquivo de variáveis: execute <code>source ~/.proxsr_env</code> no terminal desejado. Isso não altera aplicativos já abertos.</p></details>
+                </div>
+            </section>
+            <footer class="workspace-footer"><span>ProxsR / seu centro de conexões</span><a href="#">Voltar ao topo ↑</a></footer>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
